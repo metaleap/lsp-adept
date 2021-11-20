@@ -16,7 +16,7 @@ function Hover.show(pos, buf, show_pos)
     pos = pos or buf.current_pos
     local result, err = Hover.get(pos, bus)
     if err then
-        view:call_tip_show(show_pos or pos, Common.Json.encode(result))
+        return view:call_tip_show(show_pos or pos, err.message and err.message or Common.Json.encode(err))
     elseif result and result.contents then
         if result.range and Hover.range_highlight_indic > 0 then
             local start, stop = Common.rangeLsp2Ta(buf, result.range)
@@ -51,7 +51,7 @@ end
 
 
 events.connect(events.KEYPRESS, function(keycode)
-    if keycode == 65307 then -- since when is ESC not 27?
+    if keycode == 65307 then -- since when is ESC not 27... =)
         Hover.clearRangeHighlight()
     end
 end)

@@ -36,10 +36,7 @@ end
 
 function Server.log(me, msg)
     if msg then
-        local silent_print = ui.silent_print
-        ui.silent_print = true
-        ui._print('[LSP]', '['..me.lang..']\t'..msg)
-        ui.silent_print = silent_print
+        Common.shush('['..me.lang..']\t'..msg)
         setStatusBarText(msg)
     end
 end
@@ -122,9 +119,9 @@ function parseContentLength(str)
     local numpos = pos + #"Content-Length:"
     local rnpos = string.find(str, "\r", numpos, 'plain')
     if not rnpos then
-        return
+        return nil, numpos, rnpos
     end
-    return tonumber(string.sub(str, numpos, rnpos))
+    return tonumber(string.sub(str, numpos, rnpos)), numpos, rnpos
 end
 
 function Server.sendMsg(me, msg, addreqid)
@@ -197,18 +194,10 @@ function Server.onIncomingData(me, incoming_data)
     end
     me._stdin = me._stdin .. incoming_data
     while true do
-        local pos = string.find(me._stdin, "Content-Length:", 1, 'plain')
-        if not pos then
-            break
-        end
-        local numpos = pos + #"Content-Length:"
-        local rnpos = string.find(me._stdin, "\r", numpos, 'plain')
+        local clen, numpos, rnpos = parseContentLength(me._stdin)
         if not rnpos then
             break
-        end
-        local clen = tonumber(string.sub(me._stdin, numpos, rnpos))
-        --local clen = parseContentLength(me._stdin)
-        if (not clen) or clen < 2 then
+        elseif (not clen) or clen < 2 then
             me._stdin = string.sub(me._stdin, rnpos)
             break
         end

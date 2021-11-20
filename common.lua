@@ -47,6 +47,14 @@ function Common.rangeLsp2Ta(buf, range, use_utf8len, never_swap)
 end
 
 
+function Common.shush(str)
+    local silent_print = ui.silent_print
+    ui.silent_print = true
+    ui._print('[LSP]', str)
+    ui.silent_print = silent_print
+end
+
+
 -- language-server-protocol/blob/gh-pages/_specifications/specification-3-16.md#textDocumentPositionParams
 function Common.textDocumentPositionParams(buf, pos)
     return {
