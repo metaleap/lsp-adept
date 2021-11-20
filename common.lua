@@ -6,4 +6,21 @@ local Common = {
 }
 
 
+function Common.taPos2lspPos(pos)
+    pos = pos or buffer.current_pos
+    local line = buffer.line_from_position(pos)
+    return {
+        line = line - 1
+    }
+end
+
+
+function Common.textDocumentPositionParams(file_path, pos)
+    return {
+        textDocument = { uri = file_path or buffer.filename },
+        position = Common.taPos2lspPos(pos)
+    }
+end
+
+
 return Common

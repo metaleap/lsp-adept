@@ -15,7 +15,7 @@ inreqs_todo['client/registerCapability'] = 1
 
 
 function Server.new(lang, desc)
-    local me = {lang = lang, desc = desc, server = { caps = nil, name = lang .. " LSP `" .. desc.cmd .. "`" }}
+    local me = {lang = lang, desc = desc, lang_server = { caps = nil, name = lang .. " LSP `" .. desc.cmd .. "`" }}
     Server.ensureProc(me)
     return me
 end
@@ -26,7 +26,7 @@ end
 
 function Server.showMsgBox(me, text, level)
     setStatusBarText(text)
-    ui.dialogs.msgbox({ title = me.server.name, text = text, icon = level and msgicons[level] or nil })
+    ui.dialogs.msgbox({ title = me.lang_server.name, text = text, icon = level and msgicons[level] or nil })
 end
 
 function Server.log(me, msg)
@@ -72,9 +72,9 @@ function Server.ensureProc(me)
             })
             Server.sendNotify(me, 'initialized', common.json_empty)
             if resp and resp.result then
-                me.server.caps = resp.result.capabilities
+                me.lang_server.caps = resp.result.capabilities
                 if resp.result.serverInfo and resp.result.serverInfo.name and #resp.result.serverInfo.name > 0 then
-                    me.server.name = resp.result.serverInfo.name
+                    me.lang_server.name = resp.result.serverInfo.name
                 end
             end
         end

@@ -10,6 +10,10 @@ end
 
 
 Hover.showHover = function()
+    local srv = common.LspAdept.ensureRunning()
+    if not srv then return end
+
+    local hover_params = common.textDocumentPositionParams()
 end
 
 
