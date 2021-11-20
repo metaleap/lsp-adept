@@ -163,15 +163,15 @@ function Server.sendRequest(me, method, params)
                     if tail then
                         data = data..tail
                     else
-                        Server.die(me) end
+                        Server.die(me)
                     end
                 end
                 if #data >= clen then
                     accum, posrn = string.sub(data, clen + 1), nil
                     Server.pushToInbox(me, string.sub(data, 1, clen))
-                    local resp, err = Server.takeFromInbox(me, reqid)
-                    if resp or err then
-                        return resp, err
+                    local msg = Server.takeFromInbox(me, reqid)
+                    if msg then
+                        return msg.result, msg.error
                     end
                 end
             end
@@ -226,7 +226,7 @@ function Server.takeFromInbox(me, waitreqid)
     for i, msg in ipairs(me._inbox) do
         if msg.id and msg.id == waitreqid then
             table.remove(me._inbox, i)
-            return msg.result, msg.error
+            return msg
         end
     end
 end

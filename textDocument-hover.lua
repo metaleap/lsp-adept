@@ -17,7 +17,9 @@ function Hover.show(pos, buf, show_pos)
     local result, err = Hover.get(pos, bus)
     if err then
         return view:call_tip_show(show_pos or pos, err.message or Common.Json.encode(err))
-    elseif result and result.contents then
+    elseif not (result and result.contents) then
+        return view:call_tip_show(show_pos or pos, Common.UiStrings.noHoverResults)
+    else
         if result.range and Hover.range_highlight_indic > 0 then
             local start, stop = Common.rangeLsp2Ta(buf, result.range)
             buf.indicator_current = Hover.range_highlight_indic

@@ -3,6 +3,9 @@ local msgicons = {"gtk-dialog-error", "gtk-dialog-warning", "gtk-dialog-info", "
 local Common = {
     Json = require('lsp-adept.deps.dkjson'),
     LspAdept = nil, -- ./init.lua sets this, all ./*.lua get to use it
+    UiStrings = {
+        noHoverResults = "(No hover results)"
+    }
 }
 Common.Json.empty = Common.Json.decode('{}') -- plain lua {}s would mal-encode into json []s
 
