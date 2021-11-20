@@ -2,9 +2,9 @@ local Common = require('lsp-adept.common')
 
 local Server = {
     shutting_down = false,
-    workSpaceFolders = {}
+    workspaceFolders = {}
 }
-Server.workSpaceFolders[""] = function(file_path)
+Server.workspaceFolders[""] = function(file_path)
                                     local path = io.get_project_root(file_path)
                                     return {{uri = "file://"..path, name = Common.fsPathBaseName(path)}}
                                 end
@@ -26,26 +26,27 @@ function Server.new(lang, desc, file_path)
     me.sendRequest = function(method, params) return Server.sendRequest(me, method, params) end
     local workspace_folders = (Server.workspaceFolders[lang] or Server.workspaceFolders[""])(file_path)
     me.init_params = {
+        clientInfo = { name = "lsp-adept", version = "0.0.0" },
         processId = Common.Json.null, rootUri = Common.Json.null,
         initializationOptions = me.desc.init_options or Common.Json.null,
-        rootUri = workspace_folders[0].uri,
+        rootUri = workspace_folders and (#workspace_folders > 0) and workspace_folders[1] and workspace_folders[1].uri or Common.Json.null,
         workspaceFolders = workspace_folders,
         capabilities = {
             textDocument = {
+                --synchronization = { didSave = true },
                 hover = Common.LspAdept.features.textDocument.hover.clientCapabilities()
-            },
-            window = {
-                showMessage = Common.Json.empty
-            },
-            workspace= {
-                applyEdit = false,
-                workspaceEdit = false,
-                didChangeWatchedFiles = Common.json.null,
-                symbol = Common.json.null,
-                executeCommand = Common.json.null,
-                semanticTokens = Common.json.null,
-                codeLens = Common.json.null
             }
+            --workspace= {
+            --    applyEdit = false,
+            --    workspaceEdit = false,
+            --    didChangeWatchedFiles = Common.Json.null,
+            --    symbol = Common.Json.null,
+            --    executeCommand = Common.Json.null,
+            --    semanticTokens = Common.Json.null,
+            --    codeLens = Common.Json.null
+            --}
+            --window = {
+            --}
         }
     }
     Server.ensureProc(me)

@@ -10,7 +10,15 @@ local Common = {
 Common.Json.empty = Common.Json.decode('{}') -- plain lua {}s would mal-encode into json []s
 
 
-function Common.bufferFrom(file_path)
+function Common.bufAndFilePath(filepath_or_buf)
+    local isstr = (type(filepath_or_buf) == 'string')
+    local buf = (isstr and Common.bufFromFilePath(filepath_or_buf))
+                    or ((not isstr) and filepath_or_buf) or buffer
+    return buf, isstr and filepath_or_buf or (buf and buf.filename)
+end
+
+
+function Common.bufFromFilePath(file_path)
     if buffer.filename == file_path then return buffer end
     for i, buf in ipairs(_BUFFERS) do
         if buf.filename == file_path then
@@ -56,9 +64,10 @@ end
 
 
 -- language-server-protocol/blob/gh-pages/_specifications/specification-3-16.md#textDocumentPositionParams
-function Common.textDocumentPositionParams(buf, pos)
-    return {
-        textDocument = { uri = (buf or buffer).filename },
+function Common.textDocumentPositionParams(filepath_or_buf, pos)
+    local buf, file_path = Common.bufAndFilePath(filepath_or_buf)
+    return file_path and {
+        textDocument = { uri = "file://"..file_path },
         position = Common.posTa2posLsp(buf, pos)
     }
 end

@@ -2,12 +2,13 @@ local Common = require('lsp-adept.common')
 
 -- language-server-protocol/blob/gh-pages/_specifications/specification-3-16.md#textDocument_hover
 local Hover = {
-    range_highlight_indic = textadept.editing.INDIC_BRACEMATCH
+    range_highlight_indic = textadept.editing.INDIC_BRACEMATCH,
+    callTipShow = view.call_tip_show
 }
 
 
 function Hover.clientCapabilities()
-    return { contentFormat = Common.LspAdept.allow_markdown_docs and { 'markdown', 'plaintext' } or { 'plaintext' } }
+    return { contentFormat = { 'plaintext' }}
 end
 
 
@@ -16,9 +17,9 @@ function Hover.show(pos, buf, show_pos)
     pos = pos or buf.current_pos
     local result, err = Hover.get(pos, bus)
     if err then
-        return view:call_tip_show(show_pos or pos, err.message or Common.Json.encode(err))
+        return Hover.callTipShow(view, show_pos or pos, err.message or Common.Json.encode(err))
     elseif not (result and result.contents) then
-        return view:call_tip_show(show_pos or pos, Common.UiStrings.noHoverResults)
+        return Hover.callTipShow(view, show_pos or pos, Common.UiStrings.noHoverResults)
     else
         if result.range and Hover.range_highlight_indic > 0 then
             local start, stop = Common.rangeLsp2Ta(buf, result.range)
@@ -40,18 +41,18 @@ function Hover.show(pos, buf, show_pos)
             end
         end
         if #tip > 0 then
-            return view:call_tip_show(show_pos or pos, tip)
+            return Hover.callTipShow(view, show_pos or pos, tip)
         end
     end
 end
 
 
-function Hover.get(pos, buf)
-    local srv = Common.LspAdept.keepItUp(buf)
+function Hover.get(pos, filepath_or_buf)
+    local srv = Common.LspAdept.keepItUp(filepath_or_buf)
     if not (srv and srv.lang_server.caps and srv.lang_server.caps.hoverProvider) then
         return
     end
-    local hover_params = Common.textDocumentPositionParams(buf, pos)
+    local hover_params = Common.textDocumentPositionParams(filepath_or_buf, pos)
     return srv.sendRequest("textDocument/hover", hover_params)
 end
 

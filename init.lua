@@ -4,7 +4,6 @@ local Server = require('lsp-adept.server')
 local LspAdept = {
     log_rpc = true,
     log_time = true,
-    allow_markdown_docs = true,
     lang_servers = { -- eg:
         --go = {cmd = 'gopls'}
     },
@@ -27,17 +26,15 @@ end)
 
 
 function LspAdept.pertinent(filepath_or_buf, lang)
-    local _, _, lang = LspAdept.fitFor(filepath_or_buf, lang)
+    local _, file_path, lang = LspAdept.fitFor(filepath_or_buf, lang)
     return lang
 end
 
 
 function LspAdept.fitFor(filepath_or_buf, lang)
-    local buf = ((type(filepath_or_buf) ~= 'string') and filepath_or_buf) or
-                    Common.bufferFrom(filepath_or_buf) or buffer
+    local buf, file_path = Common.bufAndFilePath(filepath_or_buf)
     lang = lang or (buf and buf:get_lexer(true))
     if lang and LspAdept.lang_servers[lang] and LspAdept.lang_servers[lang].cmd then
-        local file_path = (type(filepath_or_buf) == 'string') and filepath_or_buf or (buf and buf.filename)
         return buf, file_path, lang
     end
 end
