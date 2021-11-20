@@ -113,15 +113,11 @@ end
 
 function parseContentLength(str)
     local pos = string.find(str, "Content-Length:", 1, 'plain')
-    if not pos then
-        return
+    if pos then
+        local numpos = pos + #"Content-Length:"
+        local rnpos = string.find(str, "\r", numpos, 'plain')
+        return (numpos and tonumber(string.sub(str, numpos, rnpos))), numpos, rnpos
     end
-    local numpos = pos + #"Content-Length:"
-    local rnpos = string.find(str, "\r", numpos, 'plain')
-    if not rnpos then
-        return nil, numpos, rnpos
-    end
-    return tonumber(string.sub(str, numpos, rnpos)), numpos, rnpos
 end
 
 function Server.sendMsg(me, msg, addreqid)
@@ -130,16 +126,16 @@ function Server.sendMsg(me, msg, addreqid)
             me._reqid = me._reqid + 1
             msg.id = me._reqid
         end
-        local data = Common.Json.encode(msg)
+        local json = Common.Json.encode(msg)
         if Common.LspAdept.log_rpc then
-            Server.log(me, ">>>>" .. data)
+            Server.log(me, ">>>>" .. json)
         end
-        local ok, err = me.proc:write("Content-Length: "..(#data+2).."\r\n\r\n"..data.."\r\n")
+        local ok, err = me.proc:write("Content-Length: "..(#json+2).."\r\n\r\n"..json.."\r\n")
         if (not ok) and err and #err > 0 then
             Server.die(me)
             Server.log(me, err)
             -- the below, via ensureProc, will restart server, which sends init stuff before ours. (they do crash sometimes, or pipes break..)
-            return Server.sendMsg(me, data)
+            return Server.sendMsg(me, json)
         end
     end
     return msg.id
@@ -157,26 +153,30 @@ function Server.sendRequest(me, method, params)
     local reqid = Server.sendMsg(me, {jsonrpc = '2.0', method = method, params = params}, true)
     if method == 'shutdown' then return end
     me._waiting = true
-    while true do
-        local accum, posrn = "", nil
+    local accum, posrn = "", nil
+    while Server.ensureProc(me) do
         while (not posrn) and Server.ensureProc(me) do
             local chunk = me.proc:read("L")
-            if (not chunk) then
-                break
-            else
+            if chunk then
                 accum = accum .. chunk
                 posrn = string.find(accum, "\r\n\r\n", 1, 'plain')
+            else
+                break
             end
         end
         if posrn then
-            local posdata = posrn + 4
-            local numbytesgot = #accum - (posdata - 1)
-            local clen = parseContentLength(string.sub(accum, 1, posn1))
+            local clen = parseContentLength(string.sub(accum, 1, posrn))
             if clen then
-                local tail = me.proc:read(clen - numbytesgot)
-                if tail then
-                    local data = string.sub(accum, posdata) .. tail
-                    Server.pushToInbox(me, data)
+                local posdata = posrn + 4
+                local data = string.sub(accum, posdata)
+                while #data < clen do
+                    local tail = me.proc:read(clen - #data)
+                    if not tail then return end
+                    data = data..tail
+                end
+                if #data >= clen then
+                    accum, posrn = string.sub(data, 1 + clen), nil
+                    Server.pushToInbox(me, string.sub(data, 1, clen))
                     local resp, err = Server.takeFromInbox(me, reqid)
                     if resp or err then
                         me._waiting = false
@@ -201,30 +201,31 @@ function Server.onIncomingData(me, incoming_data)
             me._stdin = string.sub(me._stdin, rnpos)
             break
         end
-        local datapos = string.find(me._stdin, "\r\n\r\n", numpos, 'plain')
-        if not datapos then
+        local jsonpos = string.find(me._stdin, "\r\n\r\n", numpos, 'plain')
+        if not jsonpos then
             break
         end
-        datapos = datapos + #"\r\n\r\n"
-        local data = string.sub(me._stdin, datapos, (datapos + clen) - 1)
-        if (not data) or #data < clen then
+        jsonpos = jsonpos + #"\r\n\r\n"
+        local json = string.sub(me._stdin, jsonpos, (jsonpos + clen) - 1)
+        if (not json) or #json < clen then
             break
         end
-        me._stdin = string.sub(me._stdin, datapos + clen)
-        Server.pushToInbox(me, data)
+        assert(#json == clen, "buggy code in Server.onIncomingData")
+        me._stdin = string.sub(me._stdin, jsonpos + clen)
+        Server.pushToInbox(me, json)
     end
 end
 
-function Server.pushToInbox(me, data)
+function Server.pushToInbox(me, json)
     if Common.LspAdept.log_rpc then
-        Server.log(me, "<<<<" .. data)
+        Server.log(me, "<<<<" .. json)
     end
-    local msg, errpos, errmsg = Common.Json.decode(data)
+    local msg, errpos, errmsg = Common.Json.decode(json)
     if msg then
         me._inbox[1 + #me._inbox] = msg
     end
     if errmsg and #errmsg > 0 then
-        Server.log(me, "UNJSON: '" .. errmsg .. "' at pos " .. errpos .. 'in: ' .. data)
+        Server.log(me, "UNJSON: '" .. errmsg .. "' at pos " .. errpos .. 'in: ' .. json)
         Server.showMsgBox(me, 'Bad JSON, check LSP log', 2)
     end
 end
