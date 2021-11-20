@@ -1,4 +1,4 @@
-local common = require('lsp-adept.common')
+local Common = require('lsp-adept.common')
 
 local Server = {
     shutting_down = false
@@ -19,7 +19,7 @@ function Server.new(lang, desc)
         lang_server = { caps = nil, name = lang .. " LSP `" .. desc.cmd .. "`" }
     }
     me.sendNotify = function(method, params) return Server.sendNotify(me, method, params) end
-    me.sendRequest = function(method, params, ignore_result) return Server.sendRequest(me, method, params, ignore_result) end
+    me.sendRequest = function(method, params) return Server.sendRequest(me, method, params) end
 
     Server.ensureProc(me)
     return me
@@ -64,16 +64,16 @@ function Server.ensureProc(me)
         if me.proc then
             Server.log(me, me.proc:status())
             local result, err = Server.sendRequest(me, 'initialize', {
-                processId = common.json.null, rootUri = common.json.null,
-                initializationOptions = me.desc.init_options or common.json.null,
+                processId = Common.Json.null, rootUri = Common.Json.null,
+                initializationOptions = me.desc.init_options or Common.Json.null,
                 capabilities = {
                     textDocument = {
-                        hover = common.LspAdept.features.textDocument.hover.clientCapabilities()
+                        hover = Common.LspAdept.features.textDocument.hover.clientCapabilities()
                     },
                     window = {
-                        showMessage = common.json.empty
+                        showMessage = Common.Json.empty
                     },
-                    workspace = common.json.empty
+                    workspace = Common.Json.empty
                 }
             })
             if result then
@@ -81,7 +81,7 @@ function Server.ensureProc(me)
                 if result.serverInfo and result.serverInfo.name and #result.serverInfo.name > 0 then
                     me.lang_server.name = result.serverInfo.name
                 end
-                Server.sendNotify(me, 'initialized', common.json.empty)
+                Server.sendNotify(me, 'initialized', Common.Json.empty)
             end
         end
     end
@@ -133,8 +133,8 @@ function Server.sendMsg(me, msg, addreqid)
             me._reqid = me._reqid + 1
             msg.id = me._reqid
         end
-        local data = common.json.encode(msg)
-        if common.LspAdept.log_rpc then
+        local data = Common.Json.encode(msg)
+        if Common.LspAdept.log_rpc then
             Server.log(me, ">>>>" .. data)
         end
         local ok, err = me.proc:write("Content-Length: "..(#data+2).."\r\n\r\n"..data.."\r\n")
@@ -156,11 +156,9 @@ function Server.sendResponse(me, reqid, result, error)
     Server.sendMsg(me, {jsonrpc = '2.0', id = reqid, result = result, error = error})
 end
 
-function Server.sendRequest(me, method, params, ignore_result)
+function Server.sendRequest(me, method, params)
     local reqid = Server.sendMsg(me, {jsonrpc = '2.0', method = method, params = params}, true)
-    if ignore_result then
-        return
-    end
+    if method == 'shutdown' then return end
     while true do
         local accum, posrn = "", nil
         while (not posrn) and Server.ensureProc(me) do
@@ -227,10 +225,10 @@ function Server.onIncomingData(me, incoming)
 end
 
 function Server.pushToInbox(me, data)
-    if common.LspAdept.log_rpc then
+    if Common.LspAdept.log_rpc then
         Server.log(me, "<<<<" .. data)
     end
-    local msg, errpos, errmsg = common.json.decode(data)
+    local msg, errpos, errmsg = Common.Json.decode(data)
     if msg then
         me._inbox[1 + #me._inbox] = msg
     end
@@ -254,7 +252,6 @@ function Server.processInbox(me, waitreqid)
             if waitreqid and msg.id == waitreqid then
                 return msg.result, msg.error
             end
-            Server.log(me, "LOSTRESP: "..msg.id)
             keeps[1 + #keeps] = msg
         end
     end
@@ -267,7 +264,7 @@ function Server.onIncomingNotification(me, msg)
     elseif msg.params and msg.method == "window/logMessage" and msg.params.message then
         Server.log(me, "LOGIT:\t" .. msg.params.message)
     elseif not notifs_ignore[msg.method] then
-        Server.log(me, "NOTIF:\t"..common.json.encode(msg))
+        Server.log(me, "NOTIF:\t"..Common.Json.encode(msg))
         Server.showMsgBox(me, msg.method, 5)
     end
 end
@@ -276,7 +273,7 @@ function Server.onIncomingRequest(me, msg)
     local known = inreqs_ignore[msg.method] or inreqs_todo[msg.method]
     Server.sendResponse(me, msg.id, nil, jRpcErr("That's not on."))
     if not known then
-        Server.log(me, "INREQ:\t" .. common.json.encode(msg))
+        Server.log(me, "INREQ:\t" .. Common.Json.encode(msg))
         Server.showMsgBox(me, msg.method, 5)
     end
 end

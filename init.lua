@@ -1,5 +1,5 @@
-local common = require('lsp-adept.common')
-local server = require('lsp-adept.server')
+local Common = require('lsp-adept.common')
+local Server = require('lsp-adept.server')
 
 local LspAdept = {
     log_rpc = true,
@@ -13,7 +13,7 @@ local LspAdept = {
         }
     }
 }
-common.LspAdept = LspAdept -- lets all *.lua use the above infos
+Common.LspAdept = LspAdept -- lets all *.lua use the above infos
 
 
 events.connect(events.INITIALIZED, function()
@@ -26,7 +26,7 @@ end)
 
 
 function LspAdept.keepUp(filepath_or_buffer)
-    local buf = (type(filepath_or_buffer) == 'string') and common.bufferFromFilePath(filepath_or_buffer)
+    local buf = (type(filepath_or_buffer) == 'string') and Common.bufferFrom(filepath_or_buffer)
                     or (filepath_or_buffer or buffer)
     local lang = buf:get_lexer(true)
     if not (lang and LspAdept.lang_servers[lang] and LspAdept.lang_servers[lang].cmd) then
@@ -34,23 +34,23 @@ function LspAdept.keepUp(filepath_or_buffer)
     end
 
     if not LspAdept.lang_servers[lang]._ then
-        LspAdept.lang_servers[lang]._ = server.new(lang, LspAdept.lang_servers[lang])
+        LspAdept.lang_servers[lang]._ = Server.new(lang, LspAdept.lang_servers[lang])
     end
     return LspAdept.lang_servers[lang]._
 end
 
 
 function LspAdept.shutItDown()
-    server.shutting_down = true
+    Server.shutting_down = true
     for langname, it in pairs(LspAdept.lang_servers) do
         if it._ then
-            server.sendRequest(it._, 'shutdown', null, true)
-            server.sendNotify(it._, 'exit')
-            server.die(it._)
+            Server.sendRequest(it._, 'shutdown')
+            Server.sendNotify(it._, 'exit')
+            Server.die(it._)
         end
         LspAdept.lang_servers[langname]._ = nil
     end
-    server.shutting_down = false
+    Server.shutting_down = false
 end
 
 
