@@ -11,11 +11,7 @@ function Common.posTa2posLsp(pos)
     pos = pos or buffer.current_pos
     local line = buffer.line_from_position(pos)
     local linestr = string.sub(buffer:get_line(line), 1, pos - buffer.position_from_line(line))
-    return { line = line - 1, character = string.len(linestr) }
-end
-
-
-function Common.posLsp2posTa(pos)
+    return { line = line - 1, character = #linestr }
 end
 
 
