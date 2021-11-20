@@ -41,7 +41,7 @@ end
 function Server.ensureProc(me)
     local err
     if (not Server.shutting_down) and not Server.chk(me) then
-        me._reqid, me._stdin, me._inbox, me._waiting = 0, "", {}, false
+        me._reqid, me._stdin, me._inbox = 0, "", {}
         me.proc, err = os.spawn(me.desc.cmd, me.desc.cwd or lfs.currentdir(),
                                 Server.onStdout(me), Server.onStderr(me), Server.onExit(me))
         if err then
@@ -76,7 +76,7 @@ function Server.ensureProc(me)
 end
 
 function Server.die(me)
-    if me.proc then
+    if Server.chk(me) then
         pcall(function() me.proc:close() end)
         pcall(function() me.proc:kill() end)
         me.proc = nil
@@ -142,7 +142,6 @@ end
 function Server.sendRequest(me, method, params)
     local reqid = Server.sendMsg(me, {jsonrpc = '2.0', method = method, params = params}, true)
     if method == 'shutdown' then return end
-    me._waiting = true
     local accum, posrn = "", nil
     while Server.chk(me) do
         while (not posrn) and Server.chk(me) do
@@ -157,19 +156,21 @@ function Server.sendRequest(me, method, params)
         if posrn then
             local clen = parseContentLength(string.sub(accum, 1, posrn))
             if clen then
-                local posdata = posrn + 4
+                local dobreak, posdata = false, posrn + 4
                 local data = string.sub(accum, posdata)
-                while #data < clen do
+                while #data < clen and Server.chk(me) do
                     local tail = me.proc:read(clen - #data)
-                    if not tail then return end
-                    data = data..tail
+                    if tail then
+                        data = data..tail
+                    else
+                        Server.die(me) end
+                    end
                 end
                 if #data >= clen then
                     accum, posrn = string.sub(data, clen + 1), nil
                     Server.pushToInbox(me, string.sub(data, 1, clen))
                     local resp, err = Server.takeFromInbox(me, reqid)
                     if resp or err then
-                        me._waiting = false
                         return resp, err
                     end
                 end
@@ -231,9 +232,6 @@ function Server.takeFromInbox(me, waitreqid)
 end
 
 function Server.processInbox(me)
-    if me._waiting then
-        return
-    end
     local keeps = {}
     for i, msg in ipairs(me._inbox) do
         if msg.id and msg.method then
