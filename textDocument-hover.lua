@@ -10,21 +10,27 @@ Hover.clientCapabilities = function()
 end
 
 
-Hover.show = function(pos, file_path, lang)
-    local result, err = Hover.get(pos)
+Hover.show = function(pos, buf, show_pos)
+    buf = buf or buffer
+    pos = pos or buf.current_pos
+    local result, err = Hover.get(pos, bus)
     if result or err then
-        return view:call_tip_show(pos or buffer.current_pos, common.json.encode(result or err))
+        return view:call_tip_show(show_pos or pos, common.json.encode(result or err))
     end
 end
 
 
-Hover.get = function(pos, file_path, lang)
-    local srv = common.LspAdept.keepUp(lang, file_path)
+Hover.get = function(pos, buf)
+    local srv = common.LspAdept.keepUp(buf)
     if not (srv and srv.lang_server.caps and srv.lang_server.caps.hoverProvider) then
         return
     end
-    local hover_params = common.textDocumentPositionParams(file_path, pos)
-    return srv.sendRequest("textDocument/hover", hover_params)
+    local hover_params = common.textDocumentPositionParams(buf, pos)
+    local result, err = srv.sendRequest("textDocument/hover", hover_params)
+    if result and result.range then
+
+    end
+    return result, err
 end
 
 
