@@ -3,6 +3,7 @@ local Server = require('lsp-adept.server')
 
 local LspAdept = {
     log_rpc = true,
+    log_time = true,
     allow_markdown_docs = true,
     lang_servers = { -- eg:
         --go = {cmd = 'gopls'}

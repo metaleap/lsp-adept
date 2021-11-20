@@ -27,8 +27,8 @@ function Server.showMsgBox(me, text, level)
     Common.showMsgBox(me.lang_server.name, text, level)
 end
 
-function Server.log(me, msg)
-    Common.shush('['..me.lang..']\t'..msg)
+function Server.log(me, cat, msg)
+    Common.shush((Common.LspAdept.log_time and os.date("%H:%M:%S") or '') .. '['..me.lang..'.'..cat..']\t'..msg)
 end
 
 function Server.chk(me)
@@ -46,10 +46,10 @@ function Server.ensureProc(me)
                                 Server.onStdout(me), Server.onStderr(me), Server.onExit(me))
         if err then
             Server.die(me)
-            Server.log(me, err)
+            Server.log(me, "err", err)
         end
         if me.proc then
-            Server.log(me, me.proc:status())
+            Server.log(me, "start", me.proc:status())
             local result, err = Server.sendRequest(me, 'initialize', {
                 processId = Common.Json.null, rootUri = Common.Json.null,
                 initializationOptions = me.desc.init_options or Common.Json.null,
@@ -84,12 +84,12 @@ function Server.die(me)
 end
 
 function Server.onExit(me) return function(exitcode)
-    Server.log(me, "EXITED: "..exitcode)
+    Server.log(me, "exit", exitcode)
     Server.die(me)
 end end
 
 function Server.onStderr(me) return function(data)
-    Server.log(me, data)
+    Server.log(me, "stderr", data)
 end end
 
 function Server.onStdout(me) return function(data)
@@ -118,12 +118,12 @@ function Server.sendMsg(me, msg, addreqid)
         end
         local json = Common.Json.encode(msg)
         if Common.LspAdept.log_rpc then
-            Server.log(me, ">>>>" .. json)
+            Server.log(me, ">>>", json)
         end
         local ok, err = me.proc:write("Content-Length: "..(#json+2).."\r\n\r\n"..json.."\r\n")
         if (not ok) and err and #err > 0 then
             Server.die(me)
-            Server.log(me, err)
+            Server.log(me, "err", err)
             -- the below, via ensureProc, will restart server, which sends init stuff before ours. (they do crash sometimes, or pipes break..)
             return Server.sendMsg(me, json)
         end
@@ -208,14 +208,15 @@ end
 
 function Server.pushToInbox(me, json)
     if Common.LspAdept.log_rpc then
-        Server.log(me, "<<<<" .. json)
+        Server.log(me, "<<<", json)
     end
     local msg, errpos, errmsg = Common.Json.decode(json)
     if msg then
         me._inbox[1 + #me._inbox] = msg
     end
     if errmsg and #errmsg > 0 then
-        Server.log(me, "UNJSON: '" .. errmsg .. "' at pos " .. errpos .. 'in: ' .. json)
+        Server.log(me, "err", "UNJSON: '" .. errmsg .. "' at pos " .. errpos .. 'in: ' .. json)
+        -- ..and for the time being:
         Server.showMsgBox(me, 'Bad JSON, check LSP log', 2)
     end
 end
@@ -250,9 +251,9 @@ function Server.onIncomingNotification(me, msg)
     if msg.params and msg.method == "window/showMessage" and msg.params.message then
         Server.showMsgBox(me, msg.params.message, msg.params.type or 5)
     elseif msg.params and msg.method == "window/logMessage" and msg.params.message then
-        Server.log(me, "LOGIT:\t" .. msg.params.message)
+        Server.log(me, "log", msg.params.message)
     elseif not notifs_ignore[msg.method] then
-        Server.log(me, "NOTIF:\t"..Common.Json.encode(msg))
+        Server.log(me, "notif", Common.Json.encode(msg))
         Server.showMsgBox(me, msg.method, 5)
     end
 end
@@ -261,7 +262,7 @@ function Server.onIncomingRequest(me, msg)
     local known = inreqs_ignore[msg.method] or inreqs_todo[msg.method]
     Server.sendResponse(me, msg.id, nil, jRpcErr("That's not on."))
     if not known then
-        Server.log(me, "INREQ:\t" .. Common.Json.encode(msg))
+        Server.log(me, "inreq", Common.Json.encode(msg))
         Server.showMsgBox(me, msg.method, 5)
     end
 end
