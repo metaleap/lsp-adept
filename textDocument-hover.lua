@@ -47,7 +47,7 @@ end
 
 
 function Hover.get(pos, buf)
-    local srv = Common.LspAdept.keepUp(buf)
+    local srv = Common.LspAdept.keepItUp(buf)
     if not (srv and srv.lang_server.caps and srv.lang_server.caps.hoverProvider) then
         return
     end

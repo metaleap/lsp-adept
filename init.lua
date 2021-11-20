@@ -20,24 +20,37 @@ Common.LspAdept = LspAdept -- lets all *.lua use the above infos
 events.connect(events.INITIALIZED, function()
     events.connect(events.RESET_BEFORE, LspAdept.shutItDown)
     events.connect(events.QUIT, LspAdept.shutItDown)
-    events.connect(events.BUFFER_AFTER_SWITCH, LspAdept.keepUp)
-    events.connect(events.FILE_OPENED, LspAdept.keepUp)
-    LspAdept.keepUp()
+    events.connect(events.BUFFER_AFTER_SWITCH, LspAdept.keepItUp)
+    events.connect(events.FILE_OPENED, LspAdept.keepItUp)
+    LspAdept.keepItUp()
 end)
 
 
-function LspAdept.keepUp(filepath_or_buffer, lang)
-    local buf = (type(filepath_or_buffer) == 'string') and Common.bufferFrom(filepath_or_buffer)
-                    or (filepath_or_buffer or buffer)
-    lang = lang or buf:get_lexer(true)
-    if not (lang and LspAdept.lang_servers[lang] and LspAdept.lang_servers[lang].cmd) then
-        return nil
-    end
+function LspAdept.pertinent(filepath_or_buf, lang)
+    local _, _, lang = LspAdept.fitFor(filepath_or_buf, lang)
+    return lang
+end
 
-    if not LspAdept.lang_servers[lang]._ then
-        LspAdept.lang_servers[lang]._ = Server.new(lang, LspAdept.lang_servers[lang])
+
+function LspAdept.fitFor(filepath_or_buf, lang)
+    local buf = ((type(filepath_or_buf) ~= 'string') and filepath_or_buf) or
+                    Common.bufferFrom(filepath_or_buf) or buffer
+    lang = lang or (buf and buf:get_lexer(true))
+    if lang and LspAdept.lang_servers[lang] and LspAdept.lang_servers[lang].cmd then
+        local file_path = (type(filepath_or_buf) == 'string') and filepath_or_buf or (buf and buf.filename)
+        return buf, file_path, lang
     end
-    return LspAdept.lang_servers[lang]._
+end
+
+
+function LspAdept.keepItUp(filepath_or_buf, lang)
+    local _, file_path, lang = LspAdept.fitFor(filepath_or_buf, lang)
+    if lang then
+        if not LspAdept.lang_servers[lang]._ then
+            LspAdept.lang_servers[lang]._ = Server.new(lang, LspAdept.lang_servers[lang], file_path)
+        end
+        return LspAdept.lang_servers[lang]._
+    end
 end
 
 

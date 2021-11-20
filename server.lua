@@ -1,8 +1,14 @@
 local Common = require('lsp-adept.common')
 
 local Server = {
-    shutting_down = false
+    shutting_down = false,
+    workSpaceFolders = {}
 }
+Server.workSpaceFolders[""] = function(file_path)
+                                    local path = io.get_project_root(file_path)
+                                    return {{uri = "file://"..path, name = Common.fsPathBaseName(path)}}
+                                end
+
 
 
 local notifs_ignore, inreqs_ignore, inreqs_todo = {}, {}, {}
@@ -11,14 +17,37 @@ inreqs_todo['client/registerCapability'] = 1
 
 
 
-function Server.new(lang, desc)
+function Server.new(lang, desc, file_path)
     local me = {
-        lang = lang, desc = desc,
+        lang = lang, desc = desc, -- `desc` here is "descriptor" not "description"
         lang_server = { caps = nil, name = lang .. " LSP `" .. desc.cmd .. "`" }
     }
     me.sendNotify = function(method, params) return Server.sendNotify(me, method, params) end
     me.sendRequest = function(method, params) return Server.sendRequest(me, method, params) end
-
+    local workspace_folders = (Server.workspaceFolders[lang] or Server.workspaceFolders[""])(file_path)
+    me.init_params = {
+        processId = Common.Json.null, rootUri = Common.Json.null,
+        initializationOptions = me.desc.init_options or Common.Json.null,
+        rootUri = workspace_folders[0].uri,
+        workspaceFolders = workspace_folders,
+        capabilities = {
+            textDocument = {
+                hover = Common.LspAdept.features.textDocument.hover.clientCapabilities()
+            },
+            window = {
+                showMessage = Common.Json.empty
+            },
+            workspace= {
+                applyEdit = false,
+                workspaceEdit = false,
+                didChangeWatchedFiles = Common.json.null,
+                symbol = Common.json.null,
+                executeCommand = Common.json.null,
+                semanticTokens = Common.json.null,
+                codeLens = Common.json.null
+            }
+        }
+    }
     Server.ensureProc(me)
     return me
 end
@@ -50,19 +79,7 @@ function Server.ensureProc(me)
         end
         if me.proc then
             Server.log(me, "start", me.proc:status())
-            local result, err = Server.sendRequest(me, 'initialize', {
-                processId = Common.Json.null, rootUri = Common.Json.null,
-                initializationOptions = me.desc.init_options or Common.Json.null,
-                capabilities = {
-                    textDocument = {
-                        hover = Common.LspAdept.features.textDocument.hover.clientCapabilities()
-                    },
-                    window = {
-                        showMessage = Common.Json.empty
-                    },
-                    workspace = Common.Json.empty
-                }
-            })
+            local result, err = Server.sendRequest(me, 'initialize', me.init_params)
             if result then
                 me.lang_server.caps = result.capabilities
                 if result.serverInfo and result.serverInfo.name and #result.serverInfo.name > 0 then

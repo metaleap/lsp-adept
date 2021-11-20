@@ -32,22 +32,26 @@ end
 
 -- language-server-protocol/blob/gh-pages/_specifications/specification-3-16.md#-position-
 function Common.posLsp2posTa(buf, lsp_pos, use_utf8len)
-    buf = buf or buffer
-    local line = lsp_pos.line + 1
-    local linepos = buf:position_from_line(line)
-    if lsp_pos.character == 0 then return linepos end
-    local linestr = string.sub(buf:get_line(line), 1, lsp_pos.character)
-    return linepos + (use_utf8len and utf8.len(linestr) or string.len(linestr))
+    if lsp_pos.line and lsp_pos.character then
+        buf = buf or buffer
+        local line = lsp_pos.line + 1
+        local linepos = buf:position_from_line(line)
+        if lsp_pos.character == 0 then return linepos end
+        local linestr = string.sub(buf:get_line(line), 1, lsp_pos.character)
+        return linepos + (use_utf8len and utf8.len(linestr) or string.len(linestr))
+    end
 end
 
 
 -- language-server-protocol/blob/gh-pages/_specifications/specification-3-16.md#-range-
-function Common.rangeLsp2Ta(buf, range, use_utf8len, never_swap)
-    local start, stop = Common.posLsp2posTa(buf, range.start, use_utf8len), Common.posLsp2posTa(buf, range['end'], use_utf8len)
-    if stop < start and not never_swap then
-        start, stop = stop, start
+function Common.rangeLsp2Ta(buf, lsp_range, use_utf8len, never_swap)
+    if lsp_range.start and lsp_range['end'] then
+        local start, stop = Common.posLsp2posTa(buf, lsp_range.start, use_utf8len), Common.posLsp2posTa(buf, lsp_range['end'], use_utf8len)
+        if start and stop and stop < start and not never_swap then
+            start, stop = stop, start
+        end
+        return start, stop
     end
-    return start, stop
 end
 
 
@@ -83,6 +87,16 @@ function Common.setStatusBarText(text)
     if text and #text > 0 then
         ui.statusbar_text = string.gsub(string.gsub(text, "\r", ""), "\n", " — ")
     end
+end
+
+
+function Common.fsPathBaseName(path)
+    return string.gsub(Common.strTrimSuffix(path, "/"), "(.*/)(.*)", "%2")
+end
+
+
+function Common.strTrimSuffix(str, suff)
+    return string.gsub(str,  suff.."$", "")
 end
 
 
