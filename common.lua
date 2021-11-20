@@ -1,3 +1,4 @@
+local msgicons = {"gtk-dialog-error", "gtk-dialog-warning", "gtk-dialog-info", "gtk-dialog-info", "gtk-dialog-question"}
 
 local Common = {
     Json = require('lsp-adept.deps.dkjson'),
@@ -47,20 +48,38 @@ function Common.rangeLsp2Ta(buf, range, use_utf8len, never_swap)
 end
 
 
-function Common.shush(str)
-    local silent_print = ui.silent_print
-    ui.silent_print = true
-    ui._print('[LSP]', str)
-    ui.silent_print = silent_print
-end
-
-
 -- language-server-protocol/blob/gh-pages/_specifications/specification-3-16.md#textDocumentPositionParams
 function Common.textDocumentPositionParams(buf, pos)
     return {
         textDocument = { uri = (buf or buffer).filename },
         position = Common.posTa2posLsp(buf, pos)
     }
+end
+
+
+-- this being here allows users to easily disable (or redirect) all
+-- log-print UX by assigning their own func to Common.shush on init
+function Common.shush(str)
+    if str and #str > 0 then
+        local silent_print = ui.silent_print
+        ui.silent_print = true
+        ui._print('[LSP]', str)
+        ui.silent_print = silent_print
+        Common.setStatusBarText(msg)
+    end
+end
+
+-- dito as above
+function Common.showMsgBox(title, text, level)
+    ui.dialogs.msgbox({ title = title, text = text, icon = msgicons[level] })
+    Common.setStatusBarText(text)
+end
+
+-- dito as above
+function Common.setStatusBarText(text)
+    if text and #text > 0 then
+        ui.statusbar_text = string.gsub(string.gsub(text, "\r", ""), "\n", " — ")
+    end
 end
 
 

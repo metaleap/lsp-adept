@@ -25,10 +25,10 @@ events.connect(events.INITIALIZED, function()
 end)
 
 
-function LspAdept.keepUp(filepath_or_buffer)
+function LspAdept.keepUp(filepath_or_buffer, lang)
     local buf = (type(filepath_or_buffer) == 'string') and Common.bufferFrom(filepath_or_buffer)
                     or (filepath_or_buffer or buffer)
-    local lang = buf:get_lexer(true)
+    lang = lang or buf:get_lexer(true)
     if not (lang and LspAdept.lang_servers[lang] and LspAdept.lang_servers[lang].cmd) then
         return nil
     end

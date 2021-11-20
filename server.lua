@@ -5,8 +5,6 @@ local Server = {
 }
 
 
-local msgicons = {"gtk-dialog-error", "gtk-dialog-warning", "gtk-dialog-info", "gtk-dialog-info", "gtk-dialog-question"}
-
 local notifs_ignore, inreqs_ignore, inreqs_todo = {}, {}, {}
 notifs_ignore['telemetry/event'] = 1
 inreqs_todo['client/registerCapability'] = 1
@@ -25,20 +23,12 @@ function Server.new(lang, desc)
     return me
 end
 
-function setStatusBarText(text)
-    ui.statusbar_text = string.gsub(string.gsub(text, "\r", ""), "\n", " — ")
-end
-
 function Server.showMsgBox(me, text, level)
-    setStatusBarText(text)
-    ui.dialogs.msgbox({ title = me.lang_server.name, text = text, icon = level and msgicons[level] or nil })
+    Common.showMsgBox(me.lang_server.name, text, level)
 end
 
 function Server.log(me, msg)
-    if msg then
-        Common.shush('['..me.lang..']\t'..msg)
-        setStatusBarText(msg)
-    end
+    Common.shush('['..me.lang..']\t'..msg)
 end
 
 function Server.chk(me)
