@@ -26,9 +26,20 @@ function Hover.show(pos, buf, show_pos)
         end
 
         local tip = result.contents
-        if type(tip) != 'string' then
+        if type(tip) ~= 'string' then
+            if #tip > 0 then -- legacy []MarkedString
+                local str = ""
+                for i, subtip in ipairs(tip) do
+                    str = str .. "\n\n" .. (type(subtip) == 'string' and subtip or subtip.value or '')
+                end
+                tip = string.sub(str, 3)
+            else -- MarkupContent or legacy MarkedString
+                tip = tip.value or ''
+            end
         end
-        return view:call_tip_show(show_pos or pos, tip)
+        if #tip > 0 then
+            return view:call_tip_show(show_pos or pos, tip)
+        end
     end
 end
 
