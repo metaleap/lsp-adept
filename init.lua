@@ -9,6 +9,20 @@ local M = {
 }
 
 
+
+function M.ensureRunning(lang)
+    if not (M.lang_servers[lang] and M.lang_servers[lang].cmd) then
+        return nil
+    end
+    if not M.lang_servers[lang]._ then
+        M.lang_servers[lang].log_rpc = M.log_rpc
+        M.lang_servers[lang]._ = server.new(lang, M.lang_servers[lang])
+    end
+    return M.lang_servers[lang]._
+end
+
+
+
 local onShutdown = function()
     for langname, it in pairs(M.lang_servers) do
         local srv = it._
@@ -22,18 +36,6 @@ local onShutdown = function()
 end
 events.connect(events.RESET_BEFORE, onShutdown)
 events.connect(events.QUIT, onShutdown)
-
-
-function M.ensureRunning(lang)
-    if not (M.lang_servers[lang] and M.lang_servers[lang].cmd) then
-        return nil
-    end
-    if not M.lang_servers[lang]._ then
-        M.lang_servers[lang].log_rpc = M.log_rpc
-        M.lang_servers[lang]._ = server.new(lang, M.lang_servers[lang])
-    end
-    return M.lang_servers[lang]._
-end
 
 
 
