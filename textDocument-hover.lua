@@ -6,36 +6,55 @@ local Hover = {
 }
 
 
-Hover.clientCapabilities = function()
+function Hover.clientCapabilities()
     return { contentFormat = Common.LspAdept.allow_markdown_docs and { 'markdown', 'plaintext' } or { 'plaintext' } }
 end
 
 
-Hover.show = function(pos, buf, show_pos)
+function Hover.show(pos, buf, show_pos)
     buf = buf or buffer
     pos = pos or buf.current_pos
     local result, err = Hover.get(pos, bus)
-    if result or err then
+    if err then
+        view:call_tip_show(show_pos or pos, Common.Json.encode(result))
+    elseif result and result.contents then
         if result.range and Hover.range_highlight_indic > 0 then
             local start, stop = Common.rangeLsp2Ta(buf, result.range)
             buf.indicator_current = Hover.range_highlight_indic
             buf:indicator_clear_range(1, buf.length)
             buf:indicator_fill_range(start, stop - start)
         end
-        return view:call_tip_show(show_pos or pos, Common.Json.encode(result or err))
+        return view:call_tip_show(show_pos or pos, Common.Json.encode(result))
     end
 end
 
 
-Hover.get = function(pos, buf)
+function Hover.get(pos, buf)
     local srv = Common.LspAdept.keepUp(buf)
     if not (srv and srv.lang_server.caps and srv.lang_server.caps.hoverProvider) then
         return
     end
     local hover_params = Common.textDocumentPositionParams(buf, pos)
-    local result, err = srv.sendRequest("textDocument/hover", hover_params)
-    return result, err
+    return srv.sendRequest("textDocument/hover", hover_params)
 end
+
+
+function Hover.clearRangeHighlight(buf)
+    buf = buf or buffer
+    if Hover.range_highlight_indic > 0 then
+        local indic = buf.indicator_current
+        buf.indicator_current = Hover.range_highlight_indic
+        buf:indicator_clear_range(1, buf.length)
+        buf.indicator_current = indic
+    end
+end
+
+
+events.connect(events.KEYPRESS, function(keycode)
+    if keycode == 65307 then -- since when is ESC not 27?
+        Hover.clearRangeHighlight()
+    end
+end)
 
 
 return Hover

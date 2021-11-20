@@ -27,18 +27,23 @@ end
 
 
 -- language-server-protocol/blob/gh-pages/_specifications/specification-3-16.md#-position-
-function Common.posLsp2posTa(buf, lsp_pos)
+function Common.posLsp2posTa(buf, lsp_pos, use_utf8len)
     buf = buf or buffer
     local line = lsp_pos.line + 1
     local linepos = buf:position_from_line(line)
+    if lsp_pos.character == 0 then return linepos end
     local linestr = string.sub(buf:get_line(line), 1, lsp_pos.character)
-    return 1 + utf8.len(linestr)
+    return linepos + (use_utf8len and utf8.len(linestr) or string.len(linestr))
 end
 
 
 -- language-server-protocol/blob/gh-pages/_specifications/specification-3-16.md#-range-
-function Common.rangeLsp2Ta(buf, range)
-    return Common.posLsp2posTa(buf, range.start), Common.posLsp2posTa(buf, range['end'])
+function Common.rangeLsp2Ta(buf, range, use_utf8len, never_swap)
+    local start, stop = Common.posLsp2posTa(buf, range.start, use_utf8len), Common.posLsp2posTa(buf, range['end'], use_utf8len)
+    if stop < start and not never_swap then
+        start, stop = stop, start
+    end
+    return start, stop
 end
 
 

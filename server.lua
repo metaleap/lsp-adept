@@ -54,7 +54,7 @@ end
 function Server.ensureProc(me)
     local err
     if (not Server.shutting_down) and not Server.chk(me) then
-        me._reqid, me._data, me._inbox = 0, "", {}
+        me._reqid, me._stdin, me._inbox, me._waiting = 0, "", {}, false
         me.proc, err = os.spawn(me.desc.cmd, me.desc.cwd or lfs.currentdir(),
                                 Server.onStdout(me), Server.onStderr(me), Server.onExit(me))
         if err then
@@ -159,6 +159,7 @@ end
 function Server.sendRequest(me, method, params)
     local reqid = Server.sendMsg(me, {jsonrpc = '2.0', method = method, params = params}, true)
     if method == 'shutdown' then return end
+    me._waiting = true
     while true do
         local accum, posrn = "", nil
         while (not posrn) and Server.ensureProc(me) do
@@ -179,8 +180,9 @@ function Server.sendRequest(me, method, params)
                 if tail then
                     local data = string.sub(accum, posdata) .. tail
                     Server.pushToInbox(me, data)
-                    local resp, err = Server.processInbox(me, reqid)
+                    local resp, err = Server.takeFromInbox(me, reqid)
                     if resp or err then
+                        me._waiting = false
                         return resp, err
                     end
                 end
@@ -189,37 +191,37 @@ function Server.sendRequest(me, method, params)
     end
 end
 
-function Server.onIncomingData(me, incoming)
-    if not incoming then
+function Server.onIncomingData(me, incoming_data)
+    if not (incoming_data and #incoming_data > 0) then
         return
     end
-    me._data = me._data .. incoming
+    me._stdin = me._stdin .. incoming_data
     while true do
-        local pos = string.find(me._data, "Content-Length:", 1, 'plain')
+        local pos = string.find(me._stdin, "Content-Length:", 1, 'plain')
         if not pos then
             break
         end
         local numpos = pos + #"Content-Length:"
-        local rnpos = string.find(me._data, "\r", numpos, 'plain')
+        local rnpos = string.find(me._stdin, "\r", numpos, 'plain')
         if not rnpos then
             break
         end
-        local clen = tonumber(string.sub(me._data, numpos, rnpos))
-        --local clen = parseContentLength(me._data)
+        local clen = tonumber(string.sub(me._stdin, numpos, rnpos))
+        --local clen = parseContentLength(me._stdin)
         if (not clen) or clen < 2 then
-            me._data = string.sub(me._data, rnpos)
+            me._stdin = string.sub(me._stdin, rnpos)
             break
         end
-        local datapos = string.find(me._data, "\r\n\r\n", numpos, 'plain')
+        local datapos = string.find(me._stdin, "\r\n\r\n", numpos, 'plain')
         if not datapos then
             break
         end
         datapos = datapos + #"\r\n\r\n"
-        local data = string.sub(me._data, datapos, (datapos + clen) - 1)
+        local data = string.sub(me._stdin, datapos, (datapos + clen) - 1)
         if (not data) or #data < clen then
             break
         end
-        me._data = string.sub(me._data, datapos + clen)
+        me._stdin = string.sub(me._stdin, datapos + clen)
         Server.pushToInbox(me, data)
     end
 end
@@ -238,21 +240,27 @@ function Server.pushToInbox(me, data)
     end
 end
 
-function Server.processInbox(me, waitreqid)
+function Server.takeFromInbox(me, waitreqid)
+    for i, msg in ipairs(me._inbox) do
+        if msg.id and msg.id == waitreqid then
+            table.remove(me._inbox, i)
+            return msg.result, msg.error
+        end
+    end
+end
+
+function Server.processInbox(me)
+    if me._waiting then
+        return
+    end
     local keeps = {}
-    while #me._inbox > 0 do
-        local msg = table.remove(me._inbox, 1)
-        if msg.error then
-            Server.log(me, "ERRMSG: "..json.encode(msg))
-        elseif msg.id and msg.method then
+    for i, msg in ipairs(me._inbox) do
+        if msg.id and msg.method then
             Server.onIncomingRequest(me, msg)
         elseif msg.method then
             Server.onIncomingNotification(me, msg)
-        elseif msg.id then
-            if waitreqid and msg.id == waitreqid then
-                return msg.result, msg.error
-            end
-            keeps[1 + #keeps] = msg
+        else
+            keeps[#keeps + 1] = msg
         end
     end
     me._inbox = keeps
