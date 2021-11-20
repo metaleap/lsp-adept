@@ -1,13 +1,13 @@
-local json = require('lsp-adept.deps.dkjson')
 
 local Common = {
-    LspAdept = nil, -- ./init.lua sets this
-    json_empty = json.decode('{}') -- plain lua {}s would mal-encode into json []s
+    json = require('lsp-adept.deps.dkjson'),
+    LspAdept = nil, -- ./init.lua sets this, all ./*.lua get to use it
 }
+Common.json.empty = Common.json.decode('{}') -- plain lua {}s would mal-encode into json []s
 
 
+-- language-server-protocol/blob/gh-pages/_specifications/specification-3-16.md#-position-
 function Common.posTa2posLsp(pos)
-    -- github.com/microsoft/language-server-protocol/blob/gh-pages/_specifications/specification-3-16.md#-position-
     pos = pos or buffer.current_pos
     local line = buffer.line_from_position(pos)
     local linestr = string.sub(buffer:get_line(line), 1, pos - buffer.position_from_line(line))
@@ -15,6 +15,7 @@ function Common.posTa2posLsp(pos)
 end
 
 
+-- language-server-protocol/blob/gh-pages/_specifications/specification-3-16.md#textDocumentPositionParams
 function Common.textDocumentPositionParams(file_path, pos)
     return {
         textDocument = { uri = file_path or buffer.filename },

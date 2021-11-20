@@ -13,6 +13,7 @@ local LspAdept = {
         }
     }
 }
+common.LspAdept = LspAdept -- lets all *.lua use the above infos
 
 
 events.connect(events.INITIALIZED, function()
@@ -52,5 +53,4 @@ function LspAdept.shutItDown()
 end
 
 
-common.LspAdept = LspAdept
 return LspAdept
