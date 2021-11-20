@@ -154,14 +154,14 @@ function Server.sendRequest(me, method, params)
     if method == 'shutdown' then return end
     me._waiting = true
     local accum, posrn = "", nil
-    while Server.ensureProc(me) do
-        while (not posrn) and Server.ensureProc(me) do
+    while Server.chk(me) do
+        while (not posrn) and Server.chk(me) do
             local chunk = me.proc:read("L")
-            if chunk then
+            if not chunk then
+                break
+            else
                 accum = accum .. chunk
                 posrn = string.find(accum, "\r\n\r\n", 1, 'plain')
-            else
-                break
             end
         end
         if posrn then
@@ -175,7 +175,7 @@ function Server.sendRequest(me, method, params)
                     data = data..tail
                 end
                 if #data >= clen then
-                    accum, posrn = string.sub(data, 1 + clen), nil
+                    accum, posrn = string.sub(data, clen + 1), nil
                     Server.pushToInbox(me, string.sub(data, 1, clen))
                     local resp, err = Server.takeFromInbox(me, reqid)
                     if resp or err then
