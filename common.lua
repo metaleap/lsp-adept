@@ -3,9 +3,11 @@ local msgicons = {"gtk-dialog-error", "gtk-dialog-warning", "gtk-dialog-info", "
 local Common = {
     Json = require('lsp-adept.deps.dkjson'),
     LspAdept = nil, -- ./init.lua sets this, all ./*.lua get to use it
-    UiStrings = {
+    uiStrings = {
         noHoverResults = "(No hover results)"
-    }
+    },
+    openFiles = {},
+    openDirs = {}
 }
 Common.Json.empty = Common.Json.decode('{}') -- plain lua {}s would mal-encode into json []s
 
@@ -63,6 +65,33 @@ function Common.rangeLsp2Ta(buf, lsp_range, use_utf8len, never_swap)
 end
 
 
+function Common.refreshOpenFilesAndDirs()
+    local newfiles, gonefiles, openfiles, newdirs, gonedirs, opendirs = {}, {}, {}, {}, {}, {}
+    for i, buf in ipairs(_BUFFERS) do
+        if buf.filename then
+            local dirpath = Common.fsPathParent(buf.filename)
+            opendirs[dirpath] = true
+            openfiles[buf.filename] = dirpath
+            if not Common.openFiles[buf.filename] then
+                newfiles[1+#newfiles] = buf.filename
+            end
+            if not Common.openDirs[dirpath] then
+                newdirs[1+#newdirs] = dirpath
+            end
+        end
+    end
+    for filepath, dirpath in pairs(Common.openFiles) do
+        if not opendirs[dirpath] then
+            gonedirs[dirpath] = true
+        end
+        if not openfiles[filepath] then
+            gonefiles[filepath] = true
+        end
+    end
+    Common.openDirs, Common.openFiles = opendirs, openfiles
+end
+
+
 -- language-server-protocol/blob/gh-pages/_specifications/specification-3-16.md#textDocumentPositionParams
 function Common.textDocumentPositionParams(filepath_or_buf, pos)
     local buf, file_path = Common.bufAndFilePath(filepath_or_buf)
@@ -99,13 +128,16 @@ function Common.setStatusBarText(text)
 end
 
 
+function Common.strTrimSuffix(str, suff)
+    return string.gsub(str,  suff.."$", "")
+end
+
 function Common.fsPathBaseName(path)
     return string.gsub(Common.strTrimSuffix(path, "/"), "(.*/)(.*)", "%2")
 end
 
-
-function Common.strTrimSuffix(str, suff)
-    return string.gsub(str,  suff.."$", "")
+function Common.fsPathParent(path)
+    return string.match(Common.strTrimSuffix(path, "/"), "(.*/)")
 end
 
 

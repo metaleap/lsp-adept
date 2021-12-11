@@ -19,7 +19,7 @@ function Hover.show(pos, buf, show_pos)
     if err then
         return Hover.callTipShow(view, show_pos or pos, err.message or Common.Json.encode(err))
     elseif not (result and result.contents) then
-        return Hover.callTipShow(view, show_pos or pos, Common.UiStrings.noHoverResults)
+        return Hover.callTipShow(view, show_pos or pos, Common.uiStrings.noHoverResults)
     else
         if result.range and Hover.range_highlight_indic > 0 then
             local start, stop = Common.rangeLsp2Ta(buf, result.range)

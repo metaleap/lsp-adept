@@ -13,7 +13,7 @@ local LspAdept = {
         }
     }
 }
-Common.LspAdept = LspAdept -- lets all *.lua use the above infos
+Common.LspAdept = LspAdept -- to let all *.lua use the above
 
 
 events.connect(events.INITIALIZED, function()
@@ -21,6 +21,7 @@ events.connect(events.INITIALIZED, function()
     events.connect(events.QUIT, LspAdept.shutItDown)
     events.connect(events.BUFFER_AFTER_SWITCH, LspAdept.keepItUp)
     events.connect(events.FILE_OPENED, LspAdept.keepItUp)
+    Common.refreshOpenFilesAndDirs()
     LspAdept.keepItUp()
 end)
 
